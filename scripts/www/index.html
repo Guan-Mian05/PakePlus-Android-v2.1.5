@@ -1,11 +1,284 @@
 <!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>PakePlus</title>
-    </head>
-    <body>
-        PakePlus
-    </body>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>推箱子（按钮控制版）</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px 0;
+        }
+
+        /* 游戏标题 */
+        .game-title {
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        /* 游戏容器（适配移动端） */
+        .game-container {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr); /* 7列地图，可调整 */
+            gap: 2px;
+            background-color: #ccc;
+            padding: 5px;
+            border-radius: 8px;
+            max-width: 350px;
+            width: 90%;
+        }
+
+        /* 地图格子样式 */
+        .grid-cell {
+            aspect-ratio: 1/1; /* 正方形格子 */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 4px;
+            font-size: 20px;
+        }
+
+        /* 各类元素样式 */
+        .wall {
+            background-color: #666; /* 墙壁-深灰色 */
+        }
+
+        .empty {
+            background-color: #fff; /* 空地-白色 */
+        }
+
+        .target {
+            background-color: #ffeb3b; /* 目标点-黄色 */
+            border: 2px dashed #f57f17;
+        }
+
+        .player {
+            background-color: #2196f3; /* 玩家-蓝色 */
+            border-radius: 50%; /* 圆形玩家 */
+        }
+
+        .box {
+            background-color: #f44336; /* 箱子-红色 */
+            border-radius: 6px;
+        }
+
+        .box-on-target {
+            background-color: #4caf50; /* 箱子在目标点上-绿色 */
+            border-radius: 6px;
+        }
+
+        /* 控制按钮区域 */
+        .controls {
+            margin-top: 30px;
+            display: grid;
+            grid-template-areas:
+                ". up ."
+                "left down right";
+            gap: 10px;
+            max-width: 200px;
+            width: 80%;
+        }
+
+        /* 控制按钮样式（大尺寸，方便触摸） */
+        .control-btn {
+            width: 60px;
+            height: 60px;
+            font-size: 20px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            background-color: #2196f3;
+            color: #fff;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.2);
+            touch-action: manipulation; /* 优化移动端触摸响应 */
+        }
+
+        .control-btn:active {
+            background-color: #1976d2;
+            transform: translateY(2px);
+        }
+
+        /* 按钮布局 */
+        #up { grid-area: up; }
+        #left { grid-area: left; }
+        #down { grid-area: down; }
+        #right { grid-area: right; }
+
+        /* 胜利提示 */
+        .success-tip {
+            margin-top: 20px;
+            font-size: 18px;
+            color: #4caf50;
+            font-weight: bold;
+            display: none; /* 默认隐藏 */
+        }
+    </style>
+</head>
+<body>
+    <h1 class="game-title">推箱子（按钮控制版）</h1>
+    <div class="game-container" id="gameContainer"></div>
+    <div class="success-tip" id="successTip">恭喜你！通关啦！🎉</div>
+    <div class="controls">
+        <button class="control-btn" id="up">↑</button>
+        <button class="control-btn" id="left">←</button>
+        <button class="control-btn" id="down">↓</button>
+        <button class="control-btn" id="right">→</button>
+    </div>
+
+    <script>
+        // 1. 游戏地图数据（二维数组）
+        // 0=空地, 1=墙壁, 2=目标点, 3=玩家, 4=箱子
+        const mapData = [
+            [1, 1, 1, 1, 1, 1, 1],
+            [1, 0, 0, 0, 0, 0, 1],
+            [1, 0, 0, 4, 2, 0, 1],
+            [1, 0, 0, 3, 0, 0, 1],
+            [1, 0, 0, 0, 2, 0, 1],
+            [1, 0, 4, 0, 0, 0, 1],
+            [1, 1, 1, 1, 1, 1, 1]
+        ];
+
+        // 2. 游戏状态变量
+        let gameMap = JSON.parse(JSON.stringify(mapData)); // 深拷贝地图数据
+        let playerPos = { x: 3, y: 3 }; // 玩家初始位置（对应mapData中的3）
+        const gameContainer = document.getElementById('gameContainer');
+        const successTip = document.getElementById('successTip');
+
+        // 3. 初始化游戏（渲染地图）
+        function initGame() {
+            gameContainer.innerHTML = ''; // 清空容器
+            for (let y = 0; y < gameMap.length; y++) {
+                for (let x = 0; x < gameMap[y].length; x++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'grid-cell';
+                    
+                    // 根据地图值设置样式类
+                    switch (gameMap[y][x]) {
+                        case 1:
+                            cell.classList.add('wall');
+                            break;
+                        case 2:
+                            cell.classList.add('target');
+                            break;
+                        case 3:
+                            cell.classList.add('player');
+                            // 玩家在目标点上的样式
+                            if (isTarget(x, y)) {
+                                cell.style.background = '#2196f3';
+                                cell.style.border = '2px solid #ffeb3b';
+                            }
+                            break;
+                        case 4:
+                            // 箱子在目标点上的样式
+                            if (isTarget(x, y)) {
+                                cell.classList.add('box-on-target');
+                            } else {
+                                cell.classList.add('box');
+                            }
+                            break;
+                        default:
+                            cell.classList.add('empty');
+                    }
+
+                    gameContainer.appendChild(cell);
+                }
+            }
+        }
+
+        // 4. 判断是否是目标点
+        function isTarget(x, y) {
+            // 原始地图中的目标点（避免移动后丢失目标点标识）
+            return mapData[y][x] === 2;
+        }
+
+        // 5. 移动玩家逻辑
+        function movePlayer(dx, dy) {
+            const newX = playerPos.x + dx;
+            const newY = playerPos.y + dy;
+            const nextX = newX + dx;
+            const nextY = newY + dy;
+
+            // 边界判断：不能穿墙
+            if (gameMap[newY][newX] === 1) return;
+
+            // 情况1：移动到空地/目标点
+            if (gameMap[newY][newX] === 0 || gameMap[newY][newX] === 2) {
+                // 更新玩家位置
+                gameMap[playerPos.y][playerPos.x] = isTarget(playerPos.x, playerPos.y) ? 2 : 0;
+                gameMap[newY][newX] = 3;
+                playerPos.x = newX;
+                playerPos.y = newY;
+            }
+
+            // 情况2：推动箱子
+            else if (gameMap[newY][newX] === 4) {
+                // 箱子前方不能是墙壁或另一个箱子
+                if (gameMap[nextY][nextX] === 1 || gameMap[nextY][nextX] === 4) return;
+                
+                // 移动箱子
+                gameMap[nextY][nextX] = 4;
+                // 更新玩家位置
+                gameMap[playerPos.y][playerPos.x] = isTarget(playerPos.x, playerPos.y) ? 2 : 0;
+                gameMap[newY][newX] = 3;
+                playerPos.x = newX;
+                playerPos.y = newY;
+            }
+
+            // 重新渲染地图
+            initGame();
+            // 判断是否通关
+            checkWin();
+        }
+
+        // 6. 通关判断（所有箱子都在目标点上）
+        function checkWin() {
+            let isWin = true;
+            for (let y = 0; y < gameMap.length; y++) {
+                for (let x = 0; x < gameMap[y].length; x++) {
+                    // 存在箱子不在目标点上，未通关
+                    if (gameMap[y][x] === 4 && !isTarget(x, y)) {
+                        isWin = false;
+                        break;
+                    }
+                }
+                if (!isWin) break;
+            }
+            // 显示通关提示
+            if (isWin) {
+                successTip.style.display = 'block';
+                // 禁用按钮
+                document.querySelectorAll('.control-btn').forEach(btn => {
+                    btn.disabled = true;
+                    btn.style.backgroundColor = '#90caf9';
+                });
+            }
+        }
+
+        // 7. 绑定按钮点击事件
+        document.getElementById('up').addEventListener('click', () => movePlayer(0, -1));
+        document.getElementById('left').addEventListener('click', () => movePlayer(-1, 0));
+        document.getElementById('down').addEventListener('click', () => movePlayer(0, 1));
+        document.getElementById('right').addEventListener('click', () => movePlayer(1, 0));
+
+        // 8. 初始化游戏
+        window.onload = initGame;
+    </script>
+</body>
 </html>
