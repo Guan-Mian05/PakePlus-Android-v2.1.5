@@ -1,11 +1,467 @@
 <!DOCTYPE html>
-<html lang="en">
-    <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>PakePlus</title>
-    </head>
-    <body>
-        PakePlus
-    </body>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>优化版本地音频播放器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            touch-action: manipulation; /* 优化移动端触摸响应 */
+        }
+
+        body {
+            width: 100vw;
+            height: 100vh;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* 1. 背景图容器（支持多图轮播+滑动切换） */
+        .background-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            z-index: 1;
+        }
+
+        .background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            filter: brightness(0.9);
+            transition: transform 0.5s ease; /* 滑动切换过渡动画 */
+            opacity: 0;
+            z-index: 1;
+        }
+
+        .background.active {
+            opacity: 1;
+            z-index: 2;
+        }
+
+        /* 2. 右上角背景音乐开关按钮 */
+        .music-switch {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 50px;
+            height: 50px;
+            border: none;
+            border-radius: 50%;
+            background-image: url("喇叭.png"); /* 开启状态图片 */
+            background-size: cover;
+            background-position: center;
+            cursor: pointer;
+            z-index: 4;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+        }
+
+        .music-switch.off {
+            background-image: url("静音.png"); /* 关闭状态图片 */
+        }
+
+        /* 3. 右侧录音倍速滑块（自定义图片样式） */
+        .speed-control {
+            position: absolute;
+            top: 50%;
+            right: 20px;
+            transform: translateY(-50%);
+            z-index: 3;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .speed-text {
+            color: #fff;
+            font-size: 16px;
+            font-weight: bold;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+            background: rgba(0,0,0,0.3);
+            padding: 5px 10px;
+            border-radius: 10px;
+        }
+
+        /* 自定义滑块容器（承载背景图片） */
+        .slider-wrapper {
+            width: 30px;
+            height: 200px;
+            position: relative;
+            background-image: url("滑轨背景.jpg"); /* 滑块轨道图片 */
+            background-size: cover;
+            background-position: center;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* 隐藏原生滑块，仅用其实现拖动逻辑 */
+        .speed-slider {
+            width: 100%;
+            height: 100%;
+            -webkit-appearance: slider-vertical;
+            appearance: slider-vertical;
+            opacity: 0; /* 透明隐藏 */
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        /* 自定义滑块按钮（图片样式） */
+        .slider-thumb {
+            width: 25px;
+            height: 25px;
+            background-image: url("胡萝卜.png"); /* 滑块按钮图片 */
+            background-size: cover;
+            background-position: center;
+            border-radius: 50%;
+            position: absolute;
+            z-index: 2;
+            pointer-events: none; /* 不拦截原生滑块事件 */
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        }
+
+        /* 4. 底部音频按钮（图片样式） */
+        .audio-buttons {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            z-index: 3;
+        }
+
+        .audio-btn {
+            width: 80px;
+            height: 80px;
+            border: none;
+            border-radius: 15px;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+            transition: all 0.2s ease;
+        }
+
+        #btn1 {
+            background-image: url("胡萝卜.png"); /* 按钮1图片 */
+        }
+
+        #btn2 {
+            background-image: url("胡萝卜.png"); /* 按钮2图片 */
+        }
+
+        #btn3 {
+            background-image: url("胡萝卜.png"); /* 按钮3图片 */
+        }
+
+        .audio-btn:active {
+            transform: translateY(2px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.4);
+            opacity: 0.9;
+        }
+
+        /* 响应式适配 */
+        @media (max-width: 320px) {
+            .audio-btn {
+                width: 70px;
+                height: 70px;
+            }
+            .slider-wrapper {
+                height: 180px;
+            }
+            .music-switch {
+                width: 40px;
+                height: 40px;
+            }
+        }
+
+        @media (min-width: 400px) {
+            .slider-wrapper {
+                height: 250px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 1. 多背景图容器 -->
+    <div class="background-container" id="bgContainer"></div>
+
+    <!-- 2. 右上角背景音乐开关 -->
+    <button class="music-switch" id="musicSwitch"></button>
+
+    <!-- 3. 右侧录音倍速控制（自定义图片滑块） -->
+    <div class="speed-control">
+        <div class="speed-text" id="speedText">1.0x</div>
+        <div class="slider-wrapper">
+            <input 
+                type="range" 
+                class="speed-slider" 
+                id="speedSlider"
+                min="0.1" 
+                max="10" 
+                step="0.1" 
+                value="1"
+            >
+            <div class="slider-thumb" id="sliderThumb"></div>
+        </div>
+    </div>
+
+    <!-- 4. 底部音频图片按钮 -->
+    <div class="audio-buttons">
+        <button class="audio-btn" id="btn1"></button>
+        <button class="audio-btn" id="btn2"></button>
+        <button class="audio-btn" id="btn3"></button>
+    </div>
+
+    <script>
+        // ===================== 全局配置 =====================
+        // 1. 背景图配置（15张本地背景图路径，可自行修改）
+        const bgImages = [
+            "背景 (1).png", "背景 (2).png", "背景 (3).png", "背景 (4).png", "背景 (5).png",
+            "背景 (6).png", "背景 (7).png", "背景 (8).png", "背景 (9).png", "背景 (10).png",
+            "背景 (11).png", "背景 (12).png", "背景 (13).png", "背景 (14).png", "背景 (15).png"
+        ];
+        let currentBgIndex = 0; // 当前背景图索引
+        let bgTimer = null; // 背景轮播定时器
+
+        // 2. 音频配置
+        // 录音音频（3个本地录音路径）
+        const audio1 = new Audio("告白气球.mp3");
+        const audio2 = new Audio("梦中的哈德森.mp3");
+        const audio3 = new Audio("山楂树.mp3");
+        const recordAudios = [audio1, audio2, audio3]; // 录音音频集合（仅这些受滑块控制）
+        // 背景音乐（本地路径，循环播放）
+        const bgMusic = new Audio("Zoo.mp3");
+        bgMusic.loop = true; // 循环播放
+        const defaultBgVolume = 1.0; // 背景音乐默认音量
+        const lowBgVolume = 0.3; // 录音播放时背景音乐音量
+
+        // 3. DOM元素获取
+        const bgContainer = document.getElementById("bgContainer");
+        const musicSwitch = document.getElementById("musicSwitch");
+        const speedSlider = document.getElementById("speedSlider");
+        const speedText = document.getElementById("speedText");
+        const sliderThumb = document.getElementById("sliderThumb");
+        const btn1 = document.getElementById("btn1");
+        const btn2 = document.getElementById("btn2");
+        const btn3 = document.getElementById("btn3");
+
+        // ===================== 背景图相关功能 =====================
+        // 初始化背景图
+        function initBgImages() {
+            bgImages.forEach((imgSrc, index) => {
+                const bgDiv = document.createElement("div");
+                bgDiv.className = "background";
+                bgDiv.style.backgroundImage = `url("${imgSrc}")`;
+                if (index === currentBgIndex) {
+                    bgDiv.classList.add("active");
+                }
+                bgContainer.appendChild(bgDiv);
+            });
+        }
+
+        // 切换背景图（传入目标索引）
+        function switchBg(targetIndex) {
+            // 边界处理：超出范围则循环
+            if (targetIndex < 0) {
+                targetIndex = bgImages.length - 1;
+            } else if (targetIndex >= bgImages.length) {
+                targetIndex = 0;
+            }
+
+            // 移除当前活跃背景，添加新活跃背景
+            const allBgs = document.querySelectorAll(".background");
+            allBgs[currentBgIndex].classList.remove("active");
+            allBgs[targetIndex].classList.add("active");
+            currentBgIndex = targetIndex;
+        }
+
+        // 自动轮播背景图
+        function startBgAutoPlay() {
+            // 先清除原有定时器，避免重复
+            if (bgTimer) clearInterval(bgTimer);
+            bgTimer = setInterval(() => {
+                switchBg(currentBgIndex + 1);
+            }, 4000); // 4秒切换一次
+        }
+
+        // 手动滑动切换背景（触摸事件）
+        function initBgSwipe() {
+            let startX = 0; // 触摸开始X坐标
+            let endX = 0; // 触摸结束X坐标
+
+            // 触摸开始
+            bgContainer.addEventListener("touchstart", (e) => {
+                startX = e.touches[0].clientX;
+                // 触摸时暂停自动轮播
+                if (bgTimer) clearInterval(bgTimer);
+            });
+
+            // 触摸移动
+            bgContainer.addEventListener("touchmove", (e) => {
+                endX = e.touches[0].clientX;
+            });
+
+            // 触摸结束
+            bgContainer.addEventListener("touchend", () => {
+                const swipeDistance = startX - endX;
+                // 滑动距离大于50px才触发切换（避免误触）
+                if (swipeDistance > 50) {
+                    // 左滑：下一张背景
+                    switchBg(currentBgIndex + 1);
+                } else if (swipeDistance < -50) {
+                    // 右滑：上一张背景
+                    switchBg(currentBgIndex - 1);
+                }
+                // 恢复自动轮播
+                startBgAutoPlay();
+            });
+        }
+
+        // ===================== 音频相关功能 =====================
+        // 初始化录音音频（默认1倍速，绑定结束事件）
+        function initRecordAudios() {
+            recordAudios.forEach(audio => {
+                audio.playbackRate = 1.0; // 默认1倍速
+                // 录音播放结束后，恢复背景音乐音量
+                audio.addEventListener("ended", () => {
+                    bgMusic.volume = defaultBgVolume;
+                });
+            });
+        }
+
+        // 背景音乐控制
+        function initBgMusic() {
+            // 页面加载后尝试自动播放背景音乐（移动端需用户交互兼容）
+            window.addEventListener("load", () => {
+                playBgMusic().catch(err => {
+                    console.log("背景音乐自动播放失败，可点击页面任意位置触发：", err);
+                    // 移动端兼容：点击页面任意位置触发播放
+                    document.addEventListener("click", () => {
+                        playBgMusic().catch(err => console.log("背景音乐播放失败：", err));
+                    }, { once: true });
+                });
+            });
+
+            // 背景音乐开关按钮事件
+            musicSwitch.addEventListener("click", () => {
+                if (bgMusic.paused) {
+                    playBgMusic();
+                    musicSwitch.classList.remove("off");
+                } else {
+                    bgMusic.pause();
+                    musicSwitch.classList.add("off");
+                }
+            });
+        }
+
+        // 播放背景音乐（封装兼容逻辑）
+        function playBgMusic() {
+            bgMusic.volume = defaultBgVolume;
+            return bgMusic.play();
+        }
+
+        // 录音播放逻辑（播放时降低背景音乐音量）
+        function playRecordAudio(targetAudio) {
+            // 停止其他录音
+            recordAudios.forEach(audio => {
+                if (audio !== targetAudio) {
+                    audio.pause();
+                    audio.currentTime = 0;
+                }
+            });
+            // 降低背景音乐音量
+            bgMusic.volume = lowBgVolume;
+            // 播放目标录音
+            targetAudio.currentTime = 0;
+            targetAudio.play().catch(err => {
+                console.error("录音播放失败：", err);
+                alert("录音加载失败，请检查文件路径或格式！");
+                // 恢复背景音乐音量
+                bgMusic.volume = defaultBgVolume;
+            });
+        }
+
+        // ===================== 自定义滑块功能 =====================
+        // 同步滑块按钮位置与原生滑块值
+        function syncSliderThumb() {
+            // 获取滑块最大值、最小值、当前值
+            const min = parseFloat(speedSlider.min);
+            const max = parseFloat(speedSlider.max);
+            const value = parseFloat(speedSlider.value);
+            // 计算滑块按钮位置（垂直滑块，从上到下对应max到min）
+            const percentage = (max - value) / (max - min);
+            sliderThumb.style.top = `${percentage * 100}%`;
+
+            // 更新倍速文本，仅作用于录音音频
+            const currentSpeed = value.toFixed(1);
+            speedText.textContent = `${currentSpeed}x`;
+            recordAudios.forEach(audio => {
+                audio.playbackRate = parseFloat(currentSpeed);
+            });
+        }
+
+        // ===================== 按钮点击事件 =====================
+        function initButtons() {
+            btn1.addEventListener("click", () => {
+                playRecordAudio(audio1);
+            });
+
+            btn2.addEventListener("click", () => {
+                playRecordAudio(audio2);
+            });
+
+            btn3.addEventListener("click", () => {
+                playRecordAudio(audio3);
+            });
+        }
+
+        // ===================== 初始化所有功能 =====================
+        window.addEventListener("DOMContentLoaded", () => {
+            // 1. 背景图初始化
+            initBgImages();
+            startBgAutoPlay();
+            initBgSwipe();
+
+            // 2. 音频初始化
+            initRecordAudios();
+            initBgMusic();
+
+            // 3. 滑块初始化
+            syncSliderThumb();
+            speedSlider.addEventListener("input", syncSliderThumb);
+
+            // 4. 按钮初始化
+            initButtons();
+
+            // 5. 音频加载失败提示
+            [...recordAudios, bgMusic].forEach((audio, index) => {
+                audio.addEventListener("error", () => {
+                    if (index < 3) {
+                        alert(`录音${index+1}加载失败，请确认文件存在且格式为MP3/WAV！`);
+                    } else {
+                        alert("背景音乐加载失败，请确认文件存在且格式为MP3/WAV！");
+                    }
+                });
+            });
+        });
+    </script>
+</body>
 </html>
