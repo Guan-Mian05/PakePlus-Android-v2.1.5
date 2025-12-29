@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>优化版本地音频播放器</title>
+    <title>萝卜笔</title>
     <style>
         * {
             margin: 0;
@@ -154,27 +154,52 @@
             background-size: cover;
             background-position: center;
             background-repeat: no-repeat;
+			background-color: transparent; /*按钮背景透明*/
             cursor: pointer;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+            /*box-shadow: 0 4px 8px rgba(0,0,0,0.4);*/
             transition: all 0.2s ease;
         }
 
         #btn1 {
-            background-image: url("胡萝卜.png"); /* 按钮1图片 */
+            background-image: url("萝卜左.png"); /* 按钮1图片 */
         }
 
         #btn2 {
-            background-image: url("胡萝卜.png"); /* 按钮2图片 */
+            background-image: url("萝卜中.png"); /* 按钮2图片 */
         }
 
         #btn3 {
-            background-image: url("胡萝卜.png"); /* 按钮3图片 */
+            background-image: url("萝卜右.png"); /* 按钮3图片 */
         }
 
         .audio-btn:active {
-            transform: translateY(2px);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.4);
-            opacity: 0.9;
+            transform: translateY(4px);
+            /*box-shadow: 0 2px 4px rgba(0,0,0,0.4);*/
+            opacity: 0.8;
+        }
+
+        /* 新增：中间视频弹窗样式（抖音式，占屏幕1/3，无边框） */
+        .video-popup {
+			position: fixed; /* 改用fixed定位，彻底脱离父元素，基于视口定位 */
+            top: 50%;
+            left: 0;
+            right: 0;
+            /* 核心：left和right设为0，强制宽度铺满视口，无需设置width */
+            transform: translateY(-50%); /* 仅垂直居中，不影响水平宽度 */
+            height: auto;
+            z-index: 9999; /* 最高层级，避免被遮挡 */
+            display: none;
+            padding: 0 !important; /* 强制清除内边距 */
+            margin: 0 !important; /* 强制清除外边距 */
+            box-sizing: border-box !important; /* 强制盒模型 */
+        }
+        .video-player {
+			width: 100vw !important; /* 强制宽度=视口宽度，优先级最高 */
+            height: auto !important; /* 高度自动适配，保持比例 */
+            border: none !important;
+            outline: none !important;
+            object-fit: contain; /* 完整显示视频，不裁剪；如需全屏裁剪用 cover */
+            display: block !important; /* 清除行内元素的间隙 */
         }
 
         /* 响应式适配 */
@@ -190,11 +215,19 @@
                 width: 40px;
                 height: 40px;
             }
+            /* 新增：小屏手机适配视频宽度 */
+            .video-popup {
+                width: calc(100vw / 2.8);
+            }
         }
 
         @media (min-width: 400px) {
             .slider-wrapper {
                 height: 250px;
+            }
+            /* 新增：大屏手机适配视频宽度 */
+            .video-popup {
+                width: calc(100vw / 3.2);
             }
         }
     </style>
@@ -202,6 +235,11 @@
 <body>
     <!-- 1. 多背景图容器 -->
     <div class="background-container" id="bgContainer"></div>
+
+    <!-- 新增：中间视频弹窗容器 -->
+    <div class="video-popup" id="videoPopup">
+        <video id="videoPlayer" class="video-player" playsinline></video>
+    </div>
 
     <!-- 2. 右上角背景音乐开关 -->
     <button class="music-switch" id="musicSwitch"></button>
@@ -234,24 +272,29 @@
         // ===================== 全局配置 =====================
         // 1. 背景图配置（15张本地背景图路径，可自行修改）
         const bgImages = [
-            "背景 (1).png", "背景 (2).png", "背景 (3).png", "背景 (4).png", "背景 (5).png",
-            "背景 (6).png", "背景 (7).png", "背景 (8).png", "背景 (9).png", "背景 (10).png",
-            "背景 (11).png", "背景 (12).png", "背景 (13).png", "背景 (14).png", "背景 (15).png"
+            "背景 (1).jpg", "背景 (2).jpg", "背景 (3).jpg", "背景 (4).jpg", "背景 (5).jpg",
+            "背景 (6).jpg", "背景 (7).jpg", "背景 (8).jpg", "背景 (9).jpg",
         ];
         let currentBgIndex = 0; // 当前背景图索引
         let bgTimer = null; // 背景轮播定时器
 
         // 2. 音频配置
         // 录音音频（3个本地录音路径）
-        const audio1 = new Audio("告白气球.mp3");
-        const audio2 = new Audio("梦中的哈德森.mp3");
-        const audio3 = new Audio("山楂树.mp3");
+        const audio1 = new Audio("岁岁平安.mp3");
+        const audio2 = new Audio("111.mp3");
+        const audio3 = new Audio("亲爱的好友.mp3");
         const recordAudios = [audio1, audio2, audio3]; // 录音音频集合（仅这些受滑块控制）
         // 背景音乐（本地路径，循环播放）
-        const bgMusic = new Audio("Zoo.mp3");
+        const bgMusic = new Audio("AM.mp3");
         bgMusic.loop = true; // 循环播放
         const defaultBgVolume = 1.0; // 背景音乐默认音量
-        const lowBgVolume = 0.3; // 录音播放时背景音乐音量
+        const lowBgVolume = 0.2; // 录音播放时背景音乐音量
+
+        // 新增：视频配置
+        const videoPopup = document.getElementById("videoPopup");
+        const videoPlayer = document.getElementById("videoPlayer");
+        const videoSrc = "111.mp4"; // 替换为你的本地视频路径（如"视频.mp4"）
+        const videoVolume = 0.8; // 视频音量50%
 
         // 3. DOM元素获取
         const bgContainer = document.getElementById("bgContainer");
@@ -399,6 +442,24 @@
             });
         }
 
+        // 新增：初始化视频配置
+        function initVideo() {
+            // 设置视频路径和音量
+            videoPlayer.src = videoSrc;
+            videoPlayer.volume = videoVolume;
+            // 视频播放结束事件：自动关闭弹窗，重置视频
+            videoPlayer.addEventListener("ended", () => {
+                videoPopup.style.display = "none";
+                videoPlayer.pause();
+                videoPlayer.currentTime = 0; // 重置视频到开头
+            });
+            // 视频加载失败提示
+            videoPlayer.addEventListener("error", () => {
+                alert("视频加载失败，请检查文件路径或格式！");
+                videoPopup.style.display = "none";
+            });
+        }
+
         // ===================== 自定义滑块功能 =====================
         // 同步滑块按钮位置与原生滑块值
         function syncSliderThumb() {
@@ -426,6 +487,13 @@
 
             btn2.addEventListener("click", () => {
                 playRecordAudio(audio2);
+                // 新增：点击中间按钮时显示并播放视频
+                videoPopup.style.display = "block";
+                videoPlayer.play().catch(err => {
+                    console.error("视频播放失败：", err);
+                    alert("视频播放失败，请检查文件路径或格式！");
+                    videoPopup.style.display = "none";
+                });
             });
 
             btn3.addEventListener("click", () => {
@@ -451,7 +519,10 @@
             // 4. 按钮初始化
             initButtons();
 
-            // 5. 音频加载失败提示
+            // 新增：5. 视频初始化
+            initVideo();
+
+            // 6. 音频加载失败提示
             [...recordAudios, bgMusic].forEach((audio, index) => {
                 audio.addEventListener("error", () => {
                     if (index < 3) {
