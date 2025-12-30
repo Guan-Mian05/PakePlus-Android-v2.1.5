@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>萝卜笔</title>
     <style>
-        /* 原有样式完全不变，此处省略 */
         * {
             margin: 0;
             padding: 0;
@@ -98,9 +97,9 @@
         /* 自定义滑块容器（承载背景图片） */
         .slider-wrapper {
             width: 30px;
-            height: 200px;
+            height: 175px;
             position: relative;
-            background-image: url("滑轨背景.jpg"); /* 滑块轨道图片 */
+            /*background-image: url("滑轨背景.jpg");  滑块轨道图片 */ 
             background-size: cover;
             background-position: center;
             border-radius: 15px;
@@ -108,6 +107,27 @@
             align-items: center;
             justify-content: center;
         }
+		
+        /* 新增：伪元素承载滑轨背景图并设置50%透明度 */
+        .slider-wrapper::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-image: url("滑轨背景.jpg"); /* 滑轨背景图路径 */
+            background-size: cover;
+            background-position: center;
+            opacity: 0.5; /* 50%透明度，可调整0~1之间的值 */
+            border-radius: 15px; /* 与容器圆角一致 */
+            z-index: 0; /* 层级低于滑块按钮和原生滑块，不遮挡交互 */
+        }		
+		
+		
+		
+		
+		
 
         /* 隐藏原生滑块，仅用其实现拖动逻辑 */
         .speed-slider {
@@ -273,14 +293,14 @@
         // ===================== 全局配置 =====================
         // 1. 背景图配置（15张本地背景图路径，可自行修改）
         const bgImages = [
-            "背景 (1).png", "背景 (2).png", "背景 (3).png", "背景 (4).png", "背景 (5).png",
+            "背景 (1).jpg", "背景 (2).jpg", "背景 (3).png", "背景 (4).png", "背景 (5).png",
             "背景 (6).png", "背景 (7).png", "背景 (8).png", "背景 (9).png", "背景 (10).png",
             "背景 (11).png", "背景 (12).png", "背景 (13).png", "背景 (14).png", "背景 (15).png",
 			"背景 (17).png", "背景 (18).png", "背景 (19).png", "背景 (20).png", "背景 (21).png",
-			"背景 (22).png", "背景 (23).png", "背景 (24).png", "背景 (25).png", "背景 (26).png",
-			"背景 (27).png", "背景 (28).png", "背景 (29).png", "背景 (30).png", "背景 (31).png",
+			"背景 (22).png", "背景 (23).png", "背景 (24).png", "背景 (25).jpg", "背景 (26).png",
+			"背景 (27).png", "背景 (28).jpg", "背景 (29).png", "背景 (30).png", "背景 (31).png",
 			"背景 (16).png", "背景 (32).png", "背景 (33).png", "背景 (34).png", "背景 (35).png",
-			"背景 (36).png"
+			"背景 (36).png","背景 (37).jpg"
         ];
         let currentBgIndex = 0; // 当前背景图索引
         let bgTimer = null; // 背景轮播定时器
@@ -291,19 +311,18 @@
         const audio2 = new Audio("2.mp3");
         const audio3 = new Audio("3.mp3");
         const recordAudios = [audio1, audio2, audio3]; // 录音音频集合（仅这些受滑块控制）
-        // 新增：录音音量配置（1.5 = 150%）
-        const recordVolume = 1.5; 
+		
         // 背景音乐（本地路径，循环播放）
         const bgMusic = new Audio("Zoo.mp3");
         bgMusic.loop = true; // 循环播放
-        const defaultBgVolume = 1.0; // 背景音乐默认音量
-        const lowBgVolume = 0.2; // 录音播放时背景音乐音量
+        const defaultBgVolume = 0.6; // 背景音乐默认音量
+        const lowBgVolume = 0.1; // 录音播放时背景音乐音量
 
         // 新增：视频配置
         const videoPopup = document.getElementById("videoPopup");
         const videoPlayer = document.getElementById("videoPlayer");
         const videoSrc = "录制的视频.mp4"; // 替换为你的本地视频路径（如"视频.mp4"）
-        const videoVolume = 0.3; // 视频音量50%
+        const videoVolume = 0.15; // 视频音量15%
 
         // 3. DOM元素获取
         const bgContainer = document.getElementById("bgContainer");
@@ -351,7 +370,7 @@
             if (bgTimer) clearInterval(bgTimer);
             bgTimer = setInterval(() => {
                 switchBg(currentBgIndex + 1);
-            }, 4000); // 4秒切换一次
+            }, 3000); // 4秒切换一次
         }
 
         // 手动滑动切换背景（触摸事件）
@@ -392,8 +411,6 @@
         function initRecordAudios() {
             recordAudios.forEach(audio => {
                 audio.playbackRate = 1.0; // 默认1倍速
-                // 修改：设置录音音量为150%
-                audio.volume = recordVolume; 
                 // 录音播放结束后，恢复背景音乐音量
                 audio.addEventListener("ended", () => {
                     bgMusic.volume = defaultBgVolume;
@@ -443,7 +460,7 @@
             });
             // 降低背景音乐音量
             bgMusic.volume = lowBgVolume;
-            // 播放目标录音（音量已提前设置为1.5，无需重复设置）
+            // 播放目标录音
             targetAudio.currentTime = 0;
             targetAudio.play().catch(err => {
                 console.error("录音播放失败：", err);
