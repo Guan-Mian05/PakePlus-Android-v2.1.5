@@ -99,7 +99,6 @@
             width: 30px;
             height: 175px;
             position: relative;
-            /*background-image: url("滑轨背景.jpg");  滑块轨道图片 */ 
             background-size: cover;
             background-position: center;
             border-radius: 15px;
@@ -123,11 +122,6 @@
             border-radius: 15px; /* 与容器圆角一致 */
             z-index: 0; /* 层级低于滑块按钮和原生滑块，不遮挡交互 */
         }		
-		
-		
-		
-		
-		
 
         /* 隐藏原生滑块，仅用其实现拖动逻辑 */
         .speed-slider {
@@ -177,7 +171,6 @@
             background-repeat: no-repeat;
 			background-color: transparent; /*按钮背景透明*/
             cursor: pointer;
-            /*box-shadow: 0 4px 8px rgba(0,0,0,0.4);*/
             transition: all 0.2s ease;
         }
 
@@ -195,35 +188,38 @@
 
         .audio-btn:active {
             transform: translateY(4px);
-            /*box-shadow: 0 2px 4px rgba(0,0,0,0.4);*/
             opacity: 0.8;
         }
 
-        /* 新增：中间视频弹窗样式（抖音式，占屏幕1/3，无边框） */
+        /* 修复：视频弹窗样式（仅包裹视频，无全屏黑背景） */
         .video-popup {
-			position: fixed; /* 改用fixed定位，彻底脱离父元素，基于视口定位 */
-            top: 50%;
-            left: 0;
-            right: 0;
-            /* 核心：left和right设为0，强制宽度铺满视口，无需设置width */
-            transform: translateY(-50%); /* 仅垂直居中，不影响水平宽度 */
+            position: fixed;
+            top: 50%;          /* 垂直居中基准 */
+            left: 0;           /* 左贴屏幕 */
+            right: 0;          /* 右贴屏幕 → 强制宽度100vw */
+            transform: translateY(-50%); /* 仅垂直居中，水平无需调整 */
+            width: 100vw !important; /* 兜底强制全屏宽度 */
             height: auto;
-            z-index: 9999; /* 最高层级，避免被遮挡 */
+            z-index: 9999;
             display: none;
-            padding: 0 !important; /* 强制清除内边距 */
-            margin: 0 !important; /* 强制清除外边距 */
-            box-sizing: border-box !important; /* 强制盒模型 */
+            padding: 0 !important;
+            margin: 0 !important;
+            box-sizing: border-box !important;
+            background: transparent !important; /* 彻底消除黑背景 */
         }
+
         .video-player {
-			width: 100vw !important; /* 强制宽度=视口宽度，优先级最高 */
-            height: auto !important; /* 高度自动适配，保持比例 */
+            width: 100% !important; /* 宽度100%填充弹窗（即屏幕宽度） */
+            height: auto !important; /* 高度按视频比例自动计算，不拉伸 */
             border: none !important;
             outline: none !important;
             object-fit: contain; /* 完整显示视频，不裁剪；如需全屏裁剪用 cover */
-            display: block !important; /* 清除行内元素的间隙 */
+            display: block !important;
+            background: transparent !important; /* 视频标签自身背景透明 */
         }
 
-        /* 响应式适配 */
+        /* 响应式适配（移除视频弹窗的错误宽度限制） */
+        /* 响应式适配：保持原有按钮/滑块适配，删除视频的多余限制 */
         @media (max-width: 320px) {
             .audio-btn {
                 width: 70px;
@@ -236,19 +232,11 @@
                 width: 40px;
                 height: 40px;
             }
-            /* 新增：小屏手机适配视频宽度 */
-            .video-popup {
-                width: calc(100vw / 2.8);
-            }
         }
 
         @media (min-width: 400px) {
             .slider-wrapper {
                 height: 250px;
-            }
-            /* 新增：大屏手机适配视频宽度 */
-            .video-popup {
-                width: calc(100vw / 3.2);
             }
         }
     </style>
@@ -282,7 +270,7 @@
         </div>
     </div>
 
-    <!-- 4. 底部音频图片按钮 -->
+    <!-- 4. 底部音频按钮 -->
     <div class="audio-buttons">
         <button class="audio-btn" id="btn1"></button>
         <button class="audio-btn" id="btn2"></button>
@@ -291,7 +279,7 @@
 
     <script>
         // ===================== 全局配置 =====================
-        // 1. 背景图配置（15张本地背景图路径，可自行修改）
+        // 1. 背景图配置
         const bgImages = [
             "背景 (1).jpg", "背景 (2).jpg", "背景 (3).png", "背景 (4).png", "背景 (5).png",
             "背景 (6).png", "背景 (7).png", "背景 (8).png", "背景 (9).png", "背景 (10).png",
@@ -306,23 +294,21 @@
         let bgTimer = null; // 背景轮播定时器
 
         // 2. 音频配置
-        // 录音音频（3个本地录音路径）
         const audio1 = new Audio("1.mp3");
         const audio2 = new Audio("2.mp3");
         const audio3 = new Audio("3.mp3");
-        const recordAudios = [audio1, audio2, audio3]; // 录音音频集合（仅这些受滑块控制）
-		
-        // 背景音乐（本地路径，循环播放）
+        const recordAudios = [audio1, audio2, audio3]; 
+        // 背景音乐
         const bgMusic = new Audio("Zoo.mp3");
-        bgMusic.loop = true; // 循环播放
-        const defaultBgVolume = 0.6; // 背景音乐默认音量
-        const lowBgVolume = 0.1; // 录音播放时背景音乐音量
+        bgMusic.loop = true; 
+        const defaultBgVolume = 0.6; 
+        const lowBgVolume = 0.1; 
 
-        // 新增：视频配置
+        // 视频配置
         const videoPopup = document.getElementById("videoPopup");
         const videoPlayer = document.getElementById("videoPlayer");
-        const videoSrc = "录制的视频.mp4"; // 替换为你的本地视频路径（如"视频.mp4"）
-        const videoVolume = 0.3; // 视频音量30%
+        const videoSrc = "shipin.mp4"; 
+        const videoVolume = 0.15; 
 
         // 3. DOM元素获取
         const bgContainer = document.getElementById("bgContainer");
@@ -335,7 +321,6 @@
         const btn3 = document.getElementById("btn3");
 
         // ===================== 背景图相关功能 =====================
-        // 初始化背景图
         function initBgImages() {
             bgImages.forEach((imgSrc, index) => {
                 const bgDiv = document.createElement("div");
@@ -348,90 +333,65 @@
             });
         }
 
-        // 切换背景图（传入目标索引）
         function switchBg(targetIndex) {
-            // 边界处理：超出范围则循环
             if (targetIndex < 0) {
                 targetIndex = bgImages.length - 1;
             } else if (targetIndex >= bgImages.length) {
                 targetIndex = 0;
             }
-
-            // 移除当前活跃背景，添加新活跃背景
             const allBgs = document.querySelectorAll(".background");
             allBgs[currentBgIndex].classList.remove("active");
             allBgs[targetIndex].classList.add("active");
             currentBgIndex = targetIndex;
         }
 
-        // 自动轮播背景图
         function startBgAutoPlay() {
-            // 先清除原有定时器，避免重复
             if (bgTimer) clearInterval(bgTimer);
             bgTimer = setInterval(() => {
                 switchBg(currentBgIndex + 1);
-            }, 3000); // 4秒切换一次
+            }, 3000); 
         }
 
-        // 手动滑动切换背景（触摸事件）
         function initBgSwipe() {
-            let startX = 0; // 触摸开始X坐标
-            let endX = 0; // 触摸结束X坐标
-
-            // 触摸开始
+            let startX = 0;
+            let endX = 0;
             bgContainer.addEventListener("touchstart", (e) => {
                 startX = e.touches[0].clientX;
-                // 触摸时暂停自动轮播
                 if (bgTimer) clearInterval(bgTimer);
             });
-
-            // 触摸移动
             bgContainer.addEventListener("touchmove", (e) => {
                 endX = e.touches[0].clientX;
             });
-
-            // 触摸结束
             bgContainer.addEventListener("touchend", () => {
                 const swipeDistance = startX - endX;
-                // 滑动距离大于50px才触发切换（避免误触）
                 if (swipeDistance > 50) {
-                    // 左滑：下一张背景
                     switchBg(currentBgIndex + 1);
                 } else if (swipeDistance < -50) {
-                    // 右滑：上一张背景
                     switchBg(currentBgIndex - 1);
                 }
-                // 恢复自动轮播
                 startBgAutoPlay();
             });
         }
 
         // ===================== 音频相关功能 =====================
-        // 初始化录音音频（默认1倍速，绑定结束事件）
         function initRecordAudios() {
             recordAudios.forEach(audio => {
-                audio.playbackRate = 1.0; // 默认1倍速
-                // 录音播放结束后，恢复背景音乐音量
+                audio.playbackRate = 1.0;
                 audio.addEventListener("ended", () => {
                     bgMusic.volume = defaultBgVolume;
                 });
             });
         }
 
-        // 背景音乐控制
         function initBgMusic() {
-            // 页面加载后尝试自动播放背景音乐（移动端需用户交互兼容）
             window.addEventListener("load", () => {
                 playBgMusic().catch(err => {
-                    console.log("背景音乐自动播放失败，可点击页面任意位置触发：", err);
-                    // 移动端兼容：点击页面任意位置触发播放
+                    console.log("背景音乐自动播放失败：", err);
                     document.addEventListener("click", () => {
                         playBgMusic().catch(err => console.log("背景音乐播放失败：", err));
                     }, { once: true });
                 });
             });
-
-            // 背景音乐开关按钮事件
             musicSwitch.addEventListener("click", () => {
                 if (bgMusic.paused) {
                     playBgMusic();
@@ -443,45 +403,36 @@
             });
         }
 
-        // 播放背景音乐（封装兼容逻辑）
         function playBgMusic() {
             bgMusic.volume = defaultBgVolume;
             return bgMusic.play();
         }
 
-        // 录音播放逻辑（播放时降低背景音乐音量）
         function playRecordAudio(targetAudio) {
-            // 停止其他录音
             recordAudios.forEach(audio => {
                 if (audio !== targetAudio) {
                     audio.pause();
                     audio.currentTime = 0;
                 }
             });
-            // 降低背景音乐音量
             bgMusic.volume = lowBgVolume;
-            // 播放目标录音
             targetAudio.currentTime = 0;
             targetAudio.play().catch(err => {
                 console.error("录音播放失败：", err);
                 alert("录音加载失败，请检查文件路径或格式！");
-                // 恢复背景音乐音量
                 bgMusic.volume = defaultBgVolume;
             });
         }
 
-        // 新增：初始化视频配置
+        // 初始化视频配置
         function initVideo() {
-            // 设置视频路径和音量
             videoPlayer.src = videoSrc;
             videoPlayer.volume = videoVolume;
-            // 视频播放结束事件：自动关闭弹窗，重置视频
             videoPlayer.addEventListener("ended", () => {
                 videoPopup.style.display = "none";
                 videoPlayer.pause();
-                videoPlayer.currentTime = 0; // 重置视频到开头
+                videoPlayer.currentTime = 0;
             });
-            // 视频加载失败提示
             videoPlayer.addEventListener("error", () => {
                 alert("视频加载失败，请检查文件路径或格式！");
                 videoPopup.style.display = "none";
@@ -489,17 +440,12 @@
         }
 
         // ===================== 自定义滑块功能 =====================
-        // 同步滑块按钮位置与原生滑块值
         function syncSliderThumb() {
-            // 获取滑块最大值、最小值、当前值
             const min = parseFloat(speedSlider.min);
             const max = parseFloat(speedSlider.max);
             const value = parseFloat(speedSlider.value);
-            // 计算滑块按钮位置（垂直滑块，从上到下对应max到min）
             const percentage = (max - value) / (max - min);
             sliderThumb.style.top = `${percentage * 100}%`;
-
-            // 更新倍速文本，仅作用于录音音频
             const currentSpeed = value.toFixed(1);
             speedText.textContent = `${currentSpeed}x`;
             recordAudios.forEach(audio => {
@@ -512,10 +458,8 @@
             btn1.addEventListener("click", () => {
                 playRecordAudio(audio1);
             });
-
             btn2.addEventListener("click", () => {
                 playRecordAudio(audio2);
-                // 新增：点击中间按钮时显示并播放视频
                 videoPopup.style.display = "block";
                 videoPlayer.play().catch(err => {
                     console.error("视频播放失败：", err);
@@ -523,7 +467,6 @@
                     videoPopup.style.display = "none";
                 });
             });
-
             btn3.addEventListener("click", () => {
                 playRecordAudio(audio3);
             });
@@ -531,26 +474,15 @@
 
         // ===================== 初始化所有功能 =====================
         window.addEventListener("DOMContentLoaded", () => {
-            // 1. 背景图初始化
             initBgImages();
             startBgAutoPlay();
             initBgSwipe();
-
-            // 2. 音频初始化
             initRecordAudios();
             initBgMusic();
-
-            // 3. 滑块初始化
             syncSliderThumb();
             speedSlider.addEventListener("input", syncSliderThumb);
-
-            // 4. 按钮初始化
             initButtons();
-
-            // 新增：5. 视频初始化
             initVideo();
-
-            // 6. 音频加载失败提示
             [...recordAudios, bgMusic].forEach((audio, index) => {
                 audio.addEventListener("error", () => {
                     if (index < 3) {
