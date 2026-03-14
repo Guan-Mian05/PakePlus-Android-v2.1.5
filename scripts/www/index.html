@@ -1,284 +1,461 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>推箱子（按钮控制版）</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
+    <title>RFID读写小程序 乙特</title>
     <style>
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
+            font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Helvetica, Arial, sans-serif;
         }
 
         body {
-            font-family: Arial, sans-serif;
-            background-color: #f5f5f5;
+            background-color: #f2f5f9;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+        }
+
+        .card {
+            background-color: #ffffff;
+            width: 100%;
+            max-width: 420px;        /* 舒适的手机卡片宽度 */
+            border-radius: 32px;
+            box-shadow: 0 20px 35px -8px rgba(0, 10, 30, 0.15), 0 8px 12px -4px rgba(0, 0, 0, 0.05);
+            padding: 28px 22px;
+            backdrop-filter: blur(2px);
+            transition: all 0.2s ease;
+        }
+
+        h1 {
+            font-size: 1.9rem;
+            font-weight: 600;
+            letter-spacing: -0.02em;
+            color: #0b2545;
+            margin-bottom: 8px;
+            line-height: 1.2;
+            padding-left: 4px;
+        }
+
+        .subhead {
+            font-size: 0.95rem;
+            color: #5e6f8c;
+            margin-bottom: 28px;
+            padding-left: 4px;
+            font-weight: 400;
+            border-left: 3px solid #3b7bff;
+            padding-left: 14px;
+            background: linear-gradient(90deg, #f0f4fe, transparent);
+            border-radius: 0 8px 8px 0;
+        }
+
+        .hex-section {
+            margin-bottom: 30px;
+        }
+
+        .hex-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 8px;
+            padding: 0 4px;
+        }
+
+        .hex-label span {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: #2c3e5c;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+
+        .hex-label small {
+            font-size: 0.75rem;
+            color: #8094b0;
+            background-color: #edf2fa;
+            padding: 4px 8px;
+            border-radius: 30px;
+        }
+
+        /* 多行文本域样式 — 支持换行/空格，高度自适应 */
+        #hexInput {
+            width: 100%;
+            min-height: 120px;          /* 足够显示多行十六进制 */
+            padding: 18px 18px;
+            font-size: 1rem;
+            font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+            background-color: #f8fafd;
+            border: 1.5px solid #d9e2ef;
+            border-radius: 24px;
+            outline: none;
+            transition: all 0.2s;
+            color: #0a1c3a;
+            letter-spacing: 0.3px;
+            resize: vertical;            /* 允许用户拖动调整高度 */
+            line-height: 1.5;
+            white-space: pre-wrap;       /* 保留空格和换行，自动换行 */
+            word-break: break-all;       /* 强制长字符串换行，防止溢出 */
+        }
+
+        #hexInput:focus {
+            border-color: #3b7bff;
+            background-color: #ffffff;
+            box-shadow: 0 0 0 4px rgba(59, 123, 255, 0.15);
+        }
+
+        #hexInput::placeholder {
+            color: #a7b8d0;
+            font-size: 0.9rem;
+            font-family: system-ui, sans-serif;
+        }
+
+        .fields-grid {
             display: flex;
             flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-            padding: 20px 0;
+            gap: 18px;
+            margin: 28px 0 24px;
         }
 
-        /* 游戏标题 */
-        .game-title {
-            font-size: 24px;
-            font-weight: bold;
-            color: #333;
-            margin-bottom: 20px;
-        }
-
-        /* 游戏容器（适配移动端） */
-        .game-container {
-            display: grid;
-            grid-template-columns: repeat(7, 1fr); /* 7列地图，可调整 */
-            gap: 2px;
-            background-color: #ccc;
-            padding: 5px;
-            border-radius: 8px;
-            max-width: 350px;
-            width: 90%;
-        }
-
-        /* 地图格子样式 */
-        .grid-cell {
-            aspect-ratio: 1/1; /* 正方形格子 */
+        .field-row {
             display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 4px;
-            font-size: 20px;
+            flex-direction: column;
+            background-color: #f9fcff;
+            border-radius: 20px;
+            padding: 8px 16px 12px 16px;
+            border: 1px solid #e8eef8;
+            transition: 0.1s;
         }
 
-        /* 各类元素样式 */
-        .wall {
-            background-color: #666; /* 墙壁-深灰色 */
+        .field-row:focus-within {
+            border-color: #3b7bff;
+            background-color: #ffffff;
+            box-shadow: 0 4px 12px rgba(59, 123, 255, 0.12);
         }
 
-        .empty {
-            background-color: #fff; /* 空地-白色 */
+        .field-row label {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #3d5675;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+            margin-left: 6px;
         }
 
-        .target {
-            background-color: #ffeb3b; /* 目标点-黄色 */
-            border: 2px dashed #f57f17;
-        }
-
-        .player {
-            background-color: #2196f3; /* 玩家-蓝色 */
-            border-radius: 50%; /* 圆形玩家 */
-        }
-
-        .box {
-            background-color: #f44336; /* 箱子-红色 */
-            border-radius: 6px;
-        }
-
-        .box-on-target {
-            background-color: #4caf50; /* 箱子在目标点上-绿色 */
-            border-radius: 6px;
-        }
-
-        /* 控制按钮区域 */
-        .controls {
-            margin-top: 30px;
-            display: grid;
-            grid-template-areas:
-                ". up ."
-                "left down right";
-            gap: 10px;
-            max-width: 200px;
-            width: 80%;
-        }
-
-        /* 控制按钮样式（大尺寸，方便触摸） */
-        .control-btn {
-            width: 60px;
-            height: 60px;
-            font-size: 20px;
-            font-weight: bold;
+        .field-row input {
             border: none;
-            border-radius: 8px;
-            background-color: #2196f3;
-            color: #fff;
+            background: transparent;
+            font-size: 1.1rem;
+            padding: 8px 6px 4px 6px;
+            outline: none;
+            color: #0b2545;
+            font-weight: 450;
+            width: 100%;
+            border-bottom: 1.5px dashed #c7d6e8;
+        }
+
+        .field-row input:focus {
+            border-bottom-color: #3b7bff;
+        }
+
+        .field-row input::placeholder {
+            color: #b1c3da;
+            font-size: 0.9rem;
+            font-weight: 300;
+        }
+
+        /* 双按钮垂直排列 (竖屏友好) */
+        .button-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            margin-top: 12px;
+        }
+
+        .btn {
+            border: none;
+            border-radius: 40px;
+            padding: 18px 10px;
+            font-size: 1.2rem;
+            font-weight: 550;
+            background-color: #ffffff;
+            color: #1f3a6b;
+            border: 1.5px solid #cdddf5;
+            transition: 0.15s;
             cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
             display: flex;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 3px 6px rgba(0,0,0,0.2);
-            touch-action: manipulation; /* 优化移动端触摸响应 */
+            gap: 6px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.02);
         }
 
-        .control-btn:active {
-            background-color: #1976d2;
-            transform: translateY(2px);
+        .btn-primary {
+            background-color: #1a3b6e;
+            color: white;
+            border: none;
+            box-shadow: 0 12px 18px -8px rgba(26, 59, 110, 0.3);
         }
 
-        /* 按钮布局 */
-        #up { grid-area: up; }
-        #left { grid-area: left; }
-        #down { grid-area: down; }
-        #right { grid-area: right; }
+        .btn-primary:active {
+            background-color: #0f2950;
+            transform: scale(0.98);
+            box-shadow: 0 5px 12px rgba(26, 59, 110, 0.4);
+        }
 
-        /* 胜利提示 */
-        .success-tip {
-            margin-top: 20px;
-            font-size: 18px;
-            color: #4caf50;
-            font-weight: bold;
-            display: none; /* 默认隐藏 */
+        .btn-secondary {
+            background-color: white;
+            color: #1a3b6e;
+            border: 1.5px solid #b9ceec;
+        }
+
+        .btn-secondary:active {
+            background-color: #f2f8ff;
+            border-color: #3b7bff;
+            transform: scale(0.98);
+        }
+
+        .btn-icon {
+            font-size: 1.4rem;
+            line-height: 1;
+        }
+
+        .footer-note {
+            text-align: center;
+            margin-top: 24px;
+            font-size: 0.7rem;
+            color: #96a9c4;
+            border-top: 1px dashed #d9e2f0;
+            padding-top: 16px;
+        }
+
+        /* 适配极小屏 */
+        @media (max-width: 360px) {
+            .card { padding: 20px 16px; }
+            h1 { font-size: 1.7rem; }
+            .btn { padding: 15px; font-size: 1.1rem; }
+            #hexInput { min-height: 100px; }
         }
     </style>
 </head>
 <body>
-    <h1 class="game-title">推箱子（按钮控制版）</h1>
-    <div class="game-container" id="gameContainer"></div>
-    <div class="success-tip" id="successTip">恭喜你！通关啦！🎉</div>
-    <div class="controls">
-        <button class="control-btn" id="up">↑</button>
-        <button class="control-btn" id="left">←</button>
-        <button class="control-btn" id="down">↓</button>
-        <button class="control-btn" id="right">→</button>
+    <div class="card">
+        <h1>RFID 乙特</h1>
+        <div class="subhead">· 车身信息编解码 · </div>
+
+        <!-- 十六进制输入区 — 多行文本域，支持换行与空格 -->
+        <div class="hex-section">
+            <div class="hex-label">
+                <span>📟 十六进制数据</span>
+                <small>可换行/空格</small>
+            </div>
+            <textarea id="hexInput" placeholder="例如&#10;4142434445460000&#10;可多行输入，空格自动忽略" spellcheck="false"></textarea>
+        </div>
+
+        <!-- 七个业务字段输入框 (静态但通过js动态填充) -->
+        <div class="fields-grid" id="fieldsContainer">
+            <!-- 载具号 (偏移0 长度8) -->
+            <div class="field-row">
+                <label for="carrierId">载具号 (8)</label>
+                <input type="text" id="carrierId" placeholder="最多8字符" maxlength="8" autocomplete="off">
+            </div>
+            <!-- 车身编码 (偏移8 长度8) -->
+            <div class="field-row">
+                <label for="bodyCode">车身编码 (8)</label>
+                <input type="text" id="bodyCode" placeholder="最多8字符" maxlength="8" autocomplete="off">
+            </div>
+            <!-- 车型配置 (偏移16 长度4) -->
+            <div class="field-row">
+                <label for="modelConfig">车型配置 (4)</label>
+                <input type="text" id="modelConfig" placeholder="最多4字符" maxlength="4" autocomplete="off">
+            </div>
+            <!-- VIN码 (偏移20 长度17) 注意最大长度17 -->
+            <div class="field-row">
+                <label for="vin">VIN码 (17)</label>
+                <input type="text" id="vin" placeholder="最多17位" maxlength="17" autocomplete="off">
+            </div>
+            <!-- 部门信息 (偏移40 长度8) -->
+            <div class="field-row">
+                <label for="dept">部门信息 (8)</label>
+                <input type="text" id="dept" placeholder="最多8字符" maxlength="8" autocomplete="off">
+            </div>
+            <!-- 外饰颜色 (偏移48 长度4) -->
+            <div class="field-row">
+                <label for="exteriorColor">外饰颜色 (4)</label>
+                <input type="text" id="exteriorColor" placeholder="最多4字符" maxlength="4" autocomplete="off">
+            </div>
+            <!-- 内饰颜色 (偏移52 长度4) -->
+            <div class="field-row">
+                <label for="interiorColor">内饰颜色 (4)</label>
+                <input type="text" id="interiorColor" placeholder="最多4字符" maxlength="4" autocomplete="off">
+            </div>
+        </div>
+
+        <!-- 按钮区域 垂直排列 方便拇指点击 -->
+        <div class="button-stack">
+            <button class="btn btn-primary" id="decodeBtn">
+                <span class="btn-icon">⬇️</span> 解码 (16进制 → 字段)
+            </button>
+            <button class="btn btn-secondary" id="encodeBtn">
+                <span class="btn-icon">⬆️</span> 编码 (字段 → 16进制)
+            </button>
+        </div>
+
+        <div class="footer-note">
+            ⚙️ 手持读写器 单手毁全厂
+        </div>
     </div>
 
     <script>
-        // 1. 游戏地图数据（二维数组）
-        // 0=空地, 1=墙壁, 2=目标点, 3=玩家, 4=箱子
-        const mapData = [
-            [1, 1, 1, 1, 1, 1, 1],
-            [1, 0, 0, 0, 0, 0, 1],
-            [1, 0, 0, 4, 2, 0, 1],
-            [1, 0, 0, 3, 0, 0, 1],
-            [1, 0, 0, 0, 2, 0, 1],
-            [1, 0, 4, 0, 0, 0, 1],
-            [1, 1, 1, 1, 1, 1, 1]
-        ];
+        (function() {
+            // ---------- 字段定义 (与Python完全一致) ----------
+            const FIELD_SPEC = [
+                { name: "载具号", offset: 0, length: 8, id: "carrierId" },
+                { name: "车身编码", offset: 8, length: 8, id: "bodyCode" },
+                { name: "车型配置", offset: 16, length: 4, id: "modelConfig" },
+                { name: "VIN码", offset: 20, length: 17, id: "vin" },
+                { name: "部门信息", offset: 40, length: 8, id: "dept" },
+                { name: "外饰颜色", offset: 48, length: 4, id: "exteriorColor" },
+                { name: "内饰颜色", offset: 52, length: 4, id: "interiorColor" }
+            ];
 
-        // 2. 游戏状态变量
-        let gameMap = JSON.parse(JSON.stringify(mapData)); // 深拷贝地图数据
-        let playerPos = { x: 3, y: 3 }; // 玩家初始位置（对应mapData中的3）
-        const gameContainer = document.getElementById('gameContainer');
-        const successTip = document.getElementById('successTip');
+            // ---------- DOM 元素 ----------
+            const hexInput = document.getElementById('hexInput');   // 现在是 <textarea>
+            // 输入框映射
+            const inputMap = {};
+            FIELD_SPEC.forEach(f => {
+                inputMap[f.id] = document.getElementById(f.id);
+            });
 
-        // 3. 初始化游戏（渲染地图）
-        function initGame() {
-            gameContainer.innerHTML = ''; // 清空容器
-            for (let y = 0; y < gameMap.length; y++) {
-                for (let x = 0; x < gameMap[y].length; x++) {
-                    const cell = document.createElement('div');
-                    cell.className = 'grid-cell';
-                    
-                    // 根据地图值设置样式类
-                    switch (gameMap[y][x]) {
-                        case 1:
-                            cell.classList.add('wall');
-                            break;
-                        case 2:
-                            cell.classList.add('target');
-                            break;
-                        case 3:
-                            cell.classList.add('player');
-                            // 玩家在目标点上的样式
-                            if (isTarget(x, y)) {
-                                cell.style.background = '#2196f3';
-                                cell.style.border = '2px solid #ffeb3b';
-                            }
-                            break;
-                        case 4:
-                            // 箱子在目标点上的样式
-                            if (isTarget(x, y)) {
-                                cell.classList.add('box-on-target');
-                            } else {
-                                cell.classList.add('box');
-                            }
-                            break;
-                        default:
-                            cell.classList.add('empty');
-                    }
-
-                    gameContainer.appendChild(cell);
+            // ---------- 工具函数 ----------
+            /** 去除所有空白字符 (空格、换行、制表符), 并检查是否为有效十六进制 (空字符串也算有效, 返回[]) */
+            function parseHexString(hexStr) {
+                let cleaned = hexStr.replace(/\s+/g, '');   // 移除所有空白，包括换行和空格
+                if (cleaned === '') return { bytes: [], valid: true };
+                const isValid = /^[0-9A-Fa-f]+$/.test(cleaned) && (cleaned.length % 2 === 0);
+                if (!isValid) return { bytes: null, valid: false };
+                const bytes = [];
+                for (let i = 0; i < cleaned.length; i += 2) {
+                    bytes.push(parseInt(cleaned.substr(i, 2), 16));
                 }
-            }
-        }
-
-        // 4. 判断是否是目标点
-        function isTarget(x, y) {
-            // 原始地图中的目标点（避免移动后丢失目标点标识）
-            return mapData[y][x] === 2;
-        }
-
-        // 5. 移动玩家逻辑
-        function movePlayer(dx, dy) {
-            const newX = playerPos.x + dx;
-            const newY = playerPos.y + dy;
-            const nextX = newX + dx;
-            const nextY = newY + dy;
-
-            // 边界判断：不能穿墙
-            if (gameMap[newY][newX] === 1) return;
-
-            // 情况1：移动到空地/目标点
-            if (gameMap[newY][newX] === 0 || gameMap[newY][newX] === 2) {
-                // 更新玩家位置
-                gameMap[playerPos.y][playerPos.x] = isTarget(playerPos.x, playerPos.y) ? 2 : 0;
-                gameMap[newY][newX] = 3;
-                playerPos.x = newX;
-                playerPos.y = newY;
+                return { bytes, valid: true };
             }
 
-            // 情况2：推动箱子
-            else if (gameMap[newY][newX] === 4) {
-                // 箱子前方不能是墙壁或另一个箱子
-                if (gameMap[nextY][nextX] === 1 || gameMap[nextY][nextX] === 4) return;
-                
-                // 移动箱子
-                gameMap[nextY][nextX] = 4;
-                // 更新玩家位置
-                gameMap[playerPos.y][playerPos.x] = isTarget(playerPos.x, playerPos.y) ? 2 : 0;
-                gameMap[newY][newX] = 3;
-                playerPos.x = newX;
-                playerPos.y = newY;
-            }
-
-            // 重新渲染地图
-            initGame();
-            // 判断是否通关
-            checkWin();
-        }
-
-        // 6. 通关判断（所有箱子都在目标点上）
-        function checkWin() {
-            let isWin = true;
-            for (let y = 0; y < gameMap.length; y++) {
-                for (let x = 0; x < gameMap[y].length; x++) {
-                    // 存在箱子不在目标点上，未通关
-                    if (gameMap[y][x] === 4 && !isTarget(x, y)) {
-                        isWin = false;
-                        break;
+            /** 将字节数组(0-255) 按ASCII规则解码 (忽略>127, 保留\0, 最后去除尾部\0) 完全匹配Python .decode('ascii', errors='ignore').rstrip('\x00') */
+            function decodeAsciiWithIgnore(byteArray) {
+                let charStr = '';
+                for (let b of byteArray) {
+                    if (b === 0) {
+                        charStr += '\x00';      // 保留空字符, 后续去除尾部
+                    } else if (b >= 1 && b <= 127) {
+                        charStr += String.fromCharCode(b);
                     }
+                    // b>=128 忽略 (ignore)
                 }
-                if (!isWin) break;
+                // 去除尾部所有 \x00  (类似 rstrip)
+                return charStr.replace(/\x00+$/, '');
             }
-            // 显示通关提示
-            if (isWin) {
-                successTip.style.display = 'block';
-                // 禁用按钮
-                document.querySelectorAll('.control-btn').forEach(btn => {
-                    btn.disabled = true;
-                    btn.style.backgroundColor = '#90caf9';
+
+            /** 将字符串转为ASCII字节数组(仅保留0-127), 并限制最大长度 (超长截断) */
+            function asciiToBytes(str, maxLength) {
+                const bytes = [];
+                for (let i = 0; i < str.length; i++) {
+                    if (bytes.length >= maxLength) break;
+                    const code = str.charCodeAt(i);
+                    if (code <= 127) {          // 有效ASCII (含0? 一般不会输入\x00, 但如果用户输入空字符也保留, 但几乎不会)
+                        bytes.push(code);
+                    }
+                    // code>127 忽略 (ignore)
+                }
+                return bytes;
+            }
+
+            // ---------- 核心解码 (hex -> 字段) ----------
+            function decodeFromHex() {
+                const hexStr = hexInput.value;   // 直接从textarea获取，包含换行空格
+                const { bytes, valid } = parseHexString(hexStr);
+                if (!valid) {
+                    alert('❌ 十六进制格式错误：只能包含0-9 A-F，且长度为偶数（允许为空）');
+                    return;
+                }
+
+                // 构建64字节数组 (全0填充)
+                const dataArray = new Uint8Array(64);
+                if (bytes.length > 0) {
+                    const copyLen = Math.min(bytes.length, 64);
+                    dataArray.set(bytes.slice(0, copyLen), 0);
+                }
+                // 根据FIELD_SPEC解码每个字段
+                FIELD_SPEC.forEach(field => {
+                    const start = field.offset;
+                    const end = start + field.length;
+                    const fieldBytes = dataArray.slice(start, end);  // Uint8Array 可直接迭代
+                    // 转成普通数组传给解码函数
+                    const byteArr = Array.from(fieldBytes);
+                    const decodedStr = decodeAsciiWithIgnore(byteArr);
+                    // 填充对应输入框
+                    const inputEl = inputMap[field.id];
+                    if (inputEl) inputEl.value = decodedStr;
                 });
             }
-        }
 
-        // 7. 绑定按钮点击事件
-        document.getElementById('up').addEventListener('click', () => movePlayer(0, -1));
-        document.getElementById('left').addEventListener('click', () => movePlayer(-1, 0));
-        document.getElementById('down').addEventListener('click', () => movePlayer(0, 1));
-        document.getElementById('right').addEventListener('click', () => movePlayer(1, 0));
+            // ---------- 核心编码 (字段 -> hex) ----------
+            function encodeToHex() {
+                // 初始化64字节全0数组
+                const dataArray = new Uint8Array(64);  // 默认全0
 
-        // 8. 初始化游戏
-        window.onload = initGame;
+                FIELD_SPEC.forEach(field => {
+                    const inputEl = inputMap[field.id];
+                    if (!inputEl) return;
+                    let rawValue = inputEl.value ?? '';
+                    // 去除首尾空格 (符合Python .strip())
+                    rawValue = rawValue.trim();
+
+                    // 转ASCII字节 (只保留0-127, 且不超过字段长度)
+                    const valueBytes = asciiToBytes(rawValue, field.length);
+                    const start = field.offset;
+                    // 逐个写入 (保持偏移)
+                    for (let i = 0; i < valueBytes.length; i++) {
+                        dataArray[start + i] = valueBytes[i];
+                    }
+                    // 未写的部分保持0 (已经初始化)
+                });
+
+                // 转成十六进制大写字符串 (64字节固定长度)
+                let hexStr = '';
+                for (let i = 0; i < dataArray.length; i++) {
+                    const byteVal = dataArray[i];
+                    hexStr += byteVal.toString(16).padStart(2, '0').toUpperCase();
+                }
+                hexInput.value = hexStr;   // 将生成的纯十六进制串填回textarea，不含空格/换行
+            }
+
+            // ---------- 绑定按钮事件 ----------
+            document.getElementById('decodeBtn').addEventListener('click', function(e) {
+                e.preventDefault();
+                try {
+                    decodeFromHex();
+                } catch (err) {
+                    alert('解码异常：' + err.message);
+                }
+            });
+
+            document.getElementById('encodeBtn').addEventListener('click', function(e) {
+                e.preventDefault();
+                try {
+                    encodeToHex();
+                } catch (err) {
+                    alert('编码异常：' + err.message);
+                }
+            });
+
+        })();
     </script>
 </body>
 </html>
